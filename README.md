@@ -28,5 +28,7 @@
 - Create local OpenSearch cluster using docker.
 - Concept Covered
 - Concept Covered
-  - Consumer Implementation, Delivery Semantics, Offset Commit, Offset commit Strategy, Batching data, Offset reset, replaying data,
-  - consumer internal threads, replica fetching 
+  - **Consumer Implementation, Delivery Semantics, Offset Commit, Offset commit Strategy, Batching data, Offset reset, replaying data,
+  - consumer internal threads, replica fetching** 
+  - Further information about this module is available under **Module-consumer-opensearch README**.
+
