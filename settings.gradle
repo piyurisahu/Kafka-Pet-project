@@ -4,4 +4,5 @@ include 'kafka-producer-wikimedia:kafka-producer-wikimedia'
 findProject(':kafka-producer-wikimedia:kafka-producer-wikimedia')?.name = 'kafka-producer-wikimedia'
 include 'kafka-producer-wikimedia'
 include 'docker'
+include 'kafka-consumer-opensearch'
 

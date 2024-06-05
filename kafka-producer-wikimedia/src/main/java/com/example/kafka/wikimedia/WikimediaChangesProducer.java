@@ -19,6 +19,18 @@ public class WikimediaChangesProducer {
         props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
         props.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+//        props.setProperty(ProducerConfig.ACKS_CONFIG, "1");
+//
+        //set safe producer configs
+        props.setProperty(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, "true");
+        props.setProperty(ProducerConfig.ACKS_CONFIG, "all");
+        props.setProperty(ProducerConfig.RETRIES_CONFIG, Integer.toString(Integer.MAX_VALUE));
+
+        //Set high thorughput producer config
+        props.setProperty(ProducerConfig.LINGER_MS_CONFIG, "20");
+        props.setProperty(ProducerConfig.BATCH_SIZE_CONFIG, Integer.toString(32 * 1024));
+        props.setProperty(ProducerConfig.COMPRESSION_TYPE_CONFIG, "snappy");
+
 
         //create the producer
         KafkaProducer<String, String> producer = new KafkaProducer<>(props);
