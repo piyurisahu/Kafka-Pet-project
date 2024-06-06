@@ -7,6 +7,7 @@
 - Wikimedia Producer
 - OpenSearch Consumer
 - Kafka Streams Sample Application
+- Tools uses:- Kafka, docker, opensearch, conduktor, Java
 
 
 ## Module Kafka-basic
