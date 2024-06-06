@@ -7,12 +7,16 @@ import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.DefaultConnectionKeepAliveStrategy;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.protocol.types.Field;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.index.IndexResponse;
 import org.opensearch.client.RequestOptions;
@@ -77,6 +81,25 @@ public class OpenSearchConsumer {
         //Create our Kafka Client
         KafkaConsumer<String, String> consumer = createKafkaConsumer();
 
+        // get a reference to the main thread
+        final Thread mainThread = Thread.currentThread();
+
+        // adding the shutdown hook
+        Runtime.getRuntime().addShutdownHook(new Thread() {
+            public void run() {
+                log.info("Detected a shutdown, let's exit by calling consumer.wakeup()...");
+                consumer.wakeup();
+
+                // join the main thread to allow the execution of the code in the main thread
+                try {
+                    mainThread.join();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
+        });
+
+
         //We need to create the index on Open Search if it doesn't exist already
 
         try(openSearchClient; consumer) {
@@ -98,6 +121,8 @@ public class OpenSearchConsumer {
 
                 int recordCount = records.count();
                 log.info("Received "+recordCount + " record(s)");
+                BulkRequest  bulkRequest = new BulkRequest();
+
 
                 for (ConsumerRecord<String, String> record : records) {
                     //Send the record into OpenSearch
@@ -114,9 +139,10 @@ public class OpenSearchConsumer {
                         IndexRequest indexRequest = new IndexRequest("wikimedia").source(record.value(), XContentType.JSON)
                                 .id(id);
 
-                        IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
+//                        IndexResponse response = openSearchClient.index(indexRequest, RequestOptions.DEFAULT);
 
-                        log.info(response.getId());
+                        bulkRequest.add(indexRequest);
+//                        log.info(response.getId());
 
                     } catch (Exception e) {
 
@@ -124,7 +150,27 @@ public class OpenSearchConsumer {
 
 
                 }
+                if(bulkRequest.numberOfActions() > 0) {
+                    BulkResponse bulkItemResponses = openSearchClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+                    log.info("Inserted " + bulkItemResponses.getItems().length + " records(s) ");
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+
+                consumer.commitSync();
+                log.info("Offset have been committed");
             }
+        }  catch (WakeupException e) {
+            log.info("Consumer is starting to shut down");
+        } catch (Exception e) {
+            log.error("Unexpected exception in the consumer", e);
+        } finally {
+            consumer.close(); // close the consumer, this will also commit offsets
+            openSearchClient.close();
+            log.info("The consumer is now gracefully shut down");
         }
 
 
@@ -149,6 +195,7 @@ public class OpenSearchConsumer {
         props.setProperty("value.deserializer", StringDeserializer.class.getName());
         props.setProperty("group.id", group_id);
         props.setProperty("auto.offset.reset", "latest");
+//        props.setProperty(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
 
         //create the consumer
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
